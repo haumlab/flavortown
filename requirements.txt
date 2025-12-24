@@ -3,3 +3,4 @@ beautifulsoup4
 recipe-scrapers
 googlesearch-python
 flask
+ddgs

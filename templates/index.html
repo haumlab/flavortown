@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flavortown | Simple Recipe Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #fafafa;
+            --text-color: #1a1a1a;
+            --card-bg: #ffffff;
+            --border-color: #f0f0f0;
+            --muted-text: #9ca3af;
+            --accent-color: #000000;
+        }
+
+        body.dark {
+            --bg-color: #121212;
+            --text-color: #e5e7eb;
+            --card-bg: #1e1e1e;
+            --border-color: #2e2e2e;
+            --muted-text: #6b7280;
+            --accent-color: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            scroll-behavior: smooth;
+            transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+        .recipe-card {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), 
+                        box-shadow 0.4s cubic-bezier(0.23, 1, 0.32, 1), 
+                        background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                        border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .recipe-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.2);
+            border-color: var(--accent-color);
+        }
+        .subtle-border {
+            border-color: var(--border-color);
+            transition: border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #fridgeCheckInner {
+            color: var(--accent-color);
+        }
+        .surprise-btn-hide {
+            opacity: 0;
+            transform: scale(0.8);
+            width: 0;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin-right: -0.5rem;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .btn-hover:hover {
+            transform: scale(1.02);
+            filter: brightness(1.1);
+        }
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-color);
+            border-bottom-color: var(--accent-color);
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 0.8s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .subtle-border {
+            border-color: var(--border-color);
+        }
+        .bg-white { background-color: var(--card-bg) !important; }
+        .bg-gray-50 { background-color: rgba(255,255,255,0.03) !important; }
+        .bg-gray-100 { background-color: var(--border-color) !important; }
+        .text-gray-400 { color: var(--muted-text) !important; }
+        .text-gray-500 { color: var(--muted-text) !important; }
+        .text-gray-600 { color: var(--text-color) !important; }
+        .text-gray-700 { color: var(--text-color) !important; }
+        .text-gray-800 { color: var(--text-color) !important; }
+        .hover\:text-black:hover { color: var(--accent-color) !important; }
+        .border-gray-200 { border-color: var(--border-color) !important; }
+        
+        .fade-in {
+            animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .slide-up {
+            animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .stagger-item {
+            opacity: 0;
+        }
+        .heart-pop {
+            animation: heartPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes heartPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4); }
+            100% { transform: scale(1); }
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; color: black; }
+            .recipe-detail { border: none; box-shadow: none; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <nav class="py-8 px-6 md:px-12 flex justify-between items-center no-print">
+        <div class="text-2xl font-bold tracking-tight cursor-pointer" onclick="location.reload()">FLAVORTOWN</div>
+        <div class="flex gap-6 items-center">
+            <button onclick="toggleDarkMode()" class="p-2 rounded-full hover:bg-gray-100 transition-colors" title="Toggle Dark Mode">
+                <svg id="darkModeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+            <button onclick="toggleFavorites()" class="text-sm text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Favorites (<span id="favCount">0</span>)</button>
+            <button onclick="toggleShoppingList()" class="text-sm text-gray-400 hover:text-black transition-colors uppercase tracking-widest">Shopping List (<span id="shopCount">0</span>)</button>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-6 md:px-12 max-w-6xl">
+        <div id="heroSection" class="py-12 md:py-20 text-center no-print">
+            <h1 class="text-4xl md:text-6xl mb-6">Find your next meal.</h1>
+            <p class="text-gray-500 mb-10 max-w-xl mx-auto font-light">Search for any recipe online. We'll find it and strip away the clutter, leaving you with just the ingredients and steps.</p>
+            
+            <div class="relative max-w-2xl mx-auto">
+                <input type="text" id="searchQuery" placeholder="Search for 'Chicken Parmesan' or 'Apple Pie'..." 
+                    class="w-full px-6 py-4 rounded-full border subtle-border bg-[var(--card-bg)] focus:outline-none focus:ring-1 focus:ring-gray-200 text-lg shadow-sm">
+                <div class="absolute right-2 top-2 flex gap-2">
+                    <button id="surpriseBtn" onclick="surpriseMe()" class="bg-[var(--border-color)] text-[var(--text-color)] px-4 py-2.5 rounded-full hover:opacity-80 transition-all text-sm btn-hover whitespace-nowrap">
+                        Surprise Me
+                    </button>
+                    <button id="searchBtn" class="bg-[var(--accent-color)] text-[var(--bg-color)] px-8 py-2.5 rounded-full hover:opacity-80 transition-all btn-hover">
+                        Search
+                    </button>
+                </div>
+            </div>
+            <div class="mt-4 flex flex-col items-center">
+                <div class="flex justify-center items-center gap-4">
+                    <label class="flex items-center cursor-pointer group">
+                        <input type="checkbox" id="fridgeMode" class="hidden" onchange="updateFridgeUI()">
+                        <div class="w-4 h-4 border subtle-border rounded mr-2 flex items-center justify-center group-hover:border-[var(--accent-color)] transition-colors" id="fridgeCheck">
+                            <svg id="fridgeCheckInner" class="w-3 h-3 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <span class="text-xs text-gray-400 uppercase tracking-widest group-hover:text-[var(--accent-color)] transition-colors">Fridge Search</span>
+                    </label>
+                    <span class="text-[10px] text-gray-400 uppercase tracking-widest opacity-60">Find recipes using what you have</span>
+                </div>
+                <div id="fridgeTip" class="hidden mt-2 text-[10px] text-gray-400 italic animate-fadeIn">Tip: Separate ingredients with commas (e.g. chicken, spinach, cream)</div>
+            </div>
+        </div>
+
+        <div id="favoritesSection" class="hidden py-12 no-print">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl">Your Favorites</h2>
+                <button onclick="pickRandomFavorite()" class="text-xs text-gray-400 hover:text-black uppercase tracking-widest border subtle-border px-4 py-2 rounded-full transition-all">Pick for me</button>
+            </div>
+            <div id="favoritesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+        </div>
+
+        <div id="shoppingListSection" class="hidden py-12 no-print max-w-2xl mx-auto">
+            <h2 class="text-3xl mb-8">Shopping List</h2>
+            <div id="shoppingListContent" class="bg-white p-8 rounded-2xl border subtle-border"></div>
+        </div>
+
+        <div id="loading" class="hidden py-20 text-center no-print">
+            <span class="loader mb-6"></span>
+            <p id="loadingText" class="text-gray-400 font-light tracking-wide pulse">Searching the culinary web...</p>
+        </div>
+
+        <div id="resultsContainer" class="hidden no-print">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl">Search Results</h2>
+                <button onclick="pickRandomResult()" class="text-xs text-gray-400 hover:text-black uppercase tracking-widest border subtle-border px-4 py-2 rounded-full transition-all">Pick for me</button>
+            </div>
+            <div id="results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 py-4">
+            </div>
+        </div>
+
+        <div id="recipeDetail" class="hidden py-12 max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-sm border subtle-border mb-20">
+            <div class="flex justify-between items-center mb-8 no-print">
+                <button onclick="closeDetail()" class="text-sm text-gray-400 hover:text-black flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    Back
+                </button>
+                <div class="flex gap-4">
+                    <button id="favBtn" onclick="toggleFavoriteCurrent()" class="text-sm text-gray-400 hover:text-black flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                        Favorite
+                    </button>
+                    <button onclick="copyRecipeLink()" class="text-sm text-gray-400 hover:text-black flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                        Copy Link
+                    </button>
+                    <button onclick="window.print()" class="text-sm text-gray-400 hover:text-black flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Print
+                    </button>
+                </div>
+            </div>
+            
+            <div id="detailContent">
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-12 px-6 md:px-12 border-t subtle-border text-center text-gray-400 text-xs uppercase tracking-widest no-print">
+        &copy; 2025 Flavortown. Built for simplicity.
+    </footer>
+
+    <div id="customModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden flex items-center justify-center z-50 no-print">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full mx-4 transform transition-all scale-95 opacity-0" id="modalContent">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h3 class="text-xl mb-2" id="modalTitle">Success</h3>
+                <p class="text-gray-500 font-light mb-8" id="modalMessage">Action completed successfully.</p>
+                <button onclick="closeModal()" class="w-full bg-black text-white py-3 rounded-full hover:bg-gray-800 transition-colors uppercase tracking-widest text-xs">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden flex items-center justify-center z-50 no-print">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full mx-4 transform transition-all scale-95 opacity-0" id="confirmModalContent">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </div>
+                <h3 class="text-xl mb-2">Are you sure?</h3>
+                <p class="text-gray-500 font-light mb-8">This will permanently clear your entire shopping list.</p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 bg-gray-100 text-gray-600 py-3 rounded-full hover:bg-gray-200 transition-colors uppercase tracking-widest text-xs">Cancel</button>
+                    <button id="confirmActionBtn" class="flex-1 bg-red-500 text-white py-3 rounded-full hover:bg-red-600 transition-colors uppercase tracking-widest text-xs">Clear All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const searchBtn = document.getElementById('searchBtn');
+        const searchQuery = document.getElementById('searchQuery');
+        const resultsGrid = document.getElementById('results');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const loading = document.getElementById('loading');
+        const recipeDetail = document.getElementById('recipeDetail');
+        const detailContent = document.getElementById('detailContent');
+        const heroSection = document.getElementById('heroSection');
+        const favoritesSection = document.getElementById('favoritesSection');
+        const favoritesGrid = document.getElementById('favoritesGrid');
+        const shoppingListSection = document.getElementById('shoppingListSection');
+        const shoppingListContent = document.getElementById('shoppingListContent');
+        const customModal = document.getElementById('customModal');
+        const modalContent = document.getElementById('modalContent');
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmModalContent = document.getElementById('confirmModalContent');
+        const confirmActionBtn = document.getElementById('confirmActionBtn');
+
+        let currentRecipes = [];
+        let favorites = JSON.parse(localStorage.getItem('flavortown_favorites') || '[]');
+        let shoppingList = JSON.parse(localStorage.getItem('flavortown_shopping') || '[]');
+        let activeRecipe = null;
+        let isSearching = false;
+        let currentServings = 1;
+        let originalServings = 1;
+        let isMetric = false;
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark');
+            const isDark = document.body.classList.contains('dark');
+            localStorage.setItem('flavortown_darkmode', isDark);
+            const icon = document.getElementById('darkModeIcon');
+            if (isDark) {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"></path>';
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+            }
+        }
+
+        if (localStorage.getItem('flavortown_darkmode') === 'true') {
+            toggleDarkMode();
+        }
+
+        function updateFridgeUI() {
+            const isFridge = document.getElementById('fridgeMode').checked;
+            document.getElementById('fridgeCheckInner').classList.toggle('hidden', !isFridge);
+            document.getElementById('fridgeTip').classList.toggle('hidden', !isFridge);
+            document.getElementById('surpriseBtn').classList.toggle('surprise-btn-hide', isFridge);
+            document.getElementById('searchQuery').placeholder = isFridge ? "List your ingredients (e.g. Chicken, Spinach, Cream)..." : "Search for 'Chicken Parmesan' or 'Apple Pie'...";
+            if (isFridge) {
+                document.getElementById('searchQuery').focus();
+            }
+        }
+
+        function scaleServings(delta) {
+            if (!activeRecipe) return;
+            const newServings = Math.max(1, currentServings + delta);
+            if (newServings === currentServings) return;
+            
+            currentServings = newServings;
+            document.getElementById('servingCount').innerText = currentServings;
+            renderIngredients();
+        }
+
+        function toggleMetric() {
+            isMetric = !isMetric;
+            document.getElementById('metricBtn').innerText = `Metric: ${isMetric ? 'ON' : 'OFF'}`;
+            renderIngredients();
+        }
+
+        function renderIngredients() {
+            const list = document.querySelector('#detailContent ul');
+            if (!list || !activeRecipe) return;
+
+            const ratio = currentServings / originalServings;
+            
+            list.innerHTML = activeRecipe.ingredients.map((ing, i) => {
+                const scaledIng = scaleIngredient(ing, ratio, isMetric);
+                return `
+                    <li class="flex items-start group cursor-pointer" onclick="toggleIngredient(${i})">
+                        <span class="mr-3 text-gray-300 group-hover:text-black transition-colors">•</span> 
+                        <span class="flex-grow">${scaledIng}</span>
+                        <button onclick="event.stopPropagation(); addToShoppingList('${scaledIng.replace(/'/g, "\\'")}')" class="opacity-0 group-hover:opacity-100 text-[10px] text-gray-400 hover:text-black ml-2 transition-all transform hover:scale-110">Add</button>
+                    </li>
+                `;
+            }).join('');
+        }
+
+        function scaleIngredient(ing, ratio, toMetric) {
+            const numRegex = /(\d+\/\d+|\d+\.\d+|\d+)/g;
+            
+            let scaled = ing.replace(numRegex, (match) => {
+                let val;
+                if (match.includes('/')) {
+                    const [n, d] = match.split('/');
+                    val = parseInt(n) / parseInt(d);
+                } else {
+                    val = parseFloat(match);
+                }
+                const result = val * ratio;
+                return result % 1 === 0 ? result : result.toFixed(2).replace(/\.?0+$/, '');
+            });
+
+            if (toMetric) {
+                scaled = scaled.replace(/\b(\d+(\.\d+)?)\s*(cup|cups)\b/gi, (m, n) => `${Math.round(parseFloat(n) * 240)}ml`)
+                               .replace(/\b(\d+(\.\d+)?)\s*(oz|ounce|ounces)\b/gi, (m, n) => `${Math.round(parseFloat(n) * 28)}g`)
+                               .replace(/\b(\d+(\.\d+)?)\s*(lb|pound|pounds)\b/gi, (m, n) => `${(parseFloat(n) * 0.45).toFixed(2)}kg`)
+                               .replace(/\b(\d+(\.\d+)?)\s*(tsp|teaspoon|teaspoons)\b/gi, (m, n) => `${Math.round(parseFloat(n) * 5)}ml`)
+                               .replace(/\b(\d+(\.\d+)?)\s*(tbsp|tablespoon|tablespoons)\b/gi, (m, n) => `${Math.round(parseFloat(n) * 15)}ml`);
+            }
+
+            return scaled;
+        }
+
+        const jokes = [
+            "What do you call a fake noodle? An Impasta.",
+            "Why did the tomato turn red? Because it saw the salad dressing!",
+            "What do you call a cheese that isn't yours? Nacho cheese.",
+            "Why did the chef get arrested? He was caught beating an egg.",
+            "What's a dessert's favorite pick-up line? Give me some sugar.",
+            "Why did the baker go to the bank? Because he kneaded dough.",
+            "What do you call a sad cup of coffee? A depresso.",
+            "Why don't eggs tell jokes? They'd crack each other up.",
+            "What do you call a cold dog? A chili dog.",
+            "Why did the cookie go to the doctor? Because he was feeling crumb-y."
+        ];
+
+        function showJoke() {
+            const loadingText = document.getElementById('loadingText');
+            if (loadingText) {
+                loadingText.innerText = jokes[Math.floor(Math.random() * jokes.length)];
+            }
+        }
+
+        window.onload = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const recipeUrl = urlParams.get('url');
+            if (recipeUrl) {
+                await loadSpecificRecipe(recipeUrl);
+            }
+        };
+
+        async function loadSpecificRecipe(url) {
+            if (isSearching) return;
+            isSearching = true;
+
+            heroSection.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            recipeDetail.classList.add('hidden');
+            loading.classList.remove('hidden');
+            showJoke();
+            const jokeInterval = setInterval(showJoke, 3000);
+
+            try {
+                const response = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                const recipe = await response.json();
+                if (recipe.error) throw new Error(recipe.error);
+                showDetail(recipe, [recipe]);
+            } catch (error) {
+                console.error(error);
+                showModal('Error', 'Could not load the shared recipe.');
+                heroSection.classList.remove('hidden');
+            } finally {
+                loading.classList.add('hidden');
+                clearInterval(jokeInterval);
+                isSearching = false;
+            }
+        }
+
+        updateCounts();
+
+        function showModal(title, message) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            customModal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                customModal.classList.add('hidden');
+            }, 200);
+        }
+
+        function showConfirmModal(onConfirm) {
+            confirmModal.classList.remove('hidden');
+            setTimeout(() => {
+                confirmModalContent.classList.remove('scale-95', 'opacity-0');
+                confirmModalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            confirmActionBtn.onclick = () => {
+                onConfirm();
+                closeConfirmModal();
+            };
+        }
+
+        function closeConfirmModal() {
+            confirmModalContent.classList.remove('scale-100', 'opacity-100');
+            confirmModalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                confirmModal.classList.add('hidden');
+            }, 200);
+        }
+
+        async function surpriseMe() {
+            if (isSearching) return;
+            const searchBtn = document.getElementById('searchBtn');
+            const originalText = searchBtn.innerText;
+            
+            try {
+                isSearching = true;
+                searchBtn.innerText = '...';
+                const response = await fetch('/api/random');
+                
+                if (!response.ok) {
+                    const dishes = ['Mushroom Risotto', 'Beef Wellington', 'Pad Thai', 'Shakshuka', 'Tacos al Pastor', 'Ratatouille', 'Butter Chicken', 'Eggs Benedict', 'Clam Chowder', 'Falafel Wrap', 'Lasagna', 'Sushi Roll', 'Greek Salad', 'French Onion Soup', 'Paella'];
+                    const randomDish = dishes[Math.floor(Math.random() * dishes.length)];
+                    isSearching = false; 
+                    setSearch(randomDish);
+                    searchBtn.innerText = originalText;
+                    return;
+                }
+                
+                const recipe = await response.json();
+                searchBtn.innerText = originalText;
+                showDetail(recipe, [recipe]);
+            } catch (error) {
+                console.error('Error fetching random recipe:', error);
+                searchBtn.innerText = originalText;
+                const dishes = ['Mushroom Risotto', 'Beef Wellington', 'Pad Thai', 'Shakshuka', 'Tacos al Pastor', 'Ratatouille', 'Butter Chicken', 'Eggs Benedict', 'Clam Chowder', 'Falafel Wrap'];
+                const randomDish = dishes[Math.floor(Math.random() * dishes.length)];
+                isSearching = false; 
+                setSearch(randomDish);
+            } finally {
+                isSearching = false;
+            }
+        }
+
+        function pickRandomResult() {
+            if (currentRecipes.length > 0) {
+                const randomRecipe = currentRecipes[Math.floor(Math.random() * currentRecipes.length)];
+                showDetail(randomRecipe, currentRecipes);
+            }
+        }
+
+        function pickRandomFavorite() {
+            if (favorites.length > 0) {
+                const randomRecipe = favorites[Math.floor(Math.random() * favorites.length)];
+                showDetail(randomRecipe, favorites);
+            }
+        }
+
+        searchQuery.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+
+        searchBtn.addEventListener('click', performSearch);
+
+        function setSearch(val) {
+            searchQuery.value = val;
+            performSearch();
+        }
+
+        async function performSearch() {
+            if (isSearching) return;
+            let query = searchQuery.value.trim();
+            if (!query) return;
+
+            const isFridge = document.getElementById('fridgeMode').checked;
+            if (isFridge) {
+                const ingredients = query.split(',').map(i => i.trim()).filter(i => i).join(' ');
+                query = `recipes using ${ingredients}`;
+            }
+
+            isSearching = true;
+            searchBtn.disabled = true;
+            searchQuery.disabled = true;
+
+            resultsGrid.innerHTML = '';
+            resultsContainer.classList.add('hidden');
+            recipeDetail.classList.add('hidden');
+            favoritesSection.classList.add('hidden');
+            shoppingListSection.classList.add('hidden');
+            heroSection.classList.remove('hidden');
+            loading.classList.remove('hidden');
+
+            showJoke();
+            const jokeInterval = setInterval(showJoke, 3000);
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                
+                currentRecipes = await response.json();
+                resultsContainer.classList.remove('hidden');
+                displayResults(currentRecipes, resultsGrid);
+            } catch (error) {
+                console.error('Search failed:', error);
+                resultsContainer.classList.remove('hidden');
+                resultsGrid.innerHTML = '<p class="col-span-full text-center text-red-400">Something went wrong. Please try again.</p>';
+            } finally {
+                loading.classList.add('hidden');
+                clearInterval(jokeInterval);
+                isSearching = false;
+                searchBtn.disabled = false;
+                searchQuery.disabled = false;
+            }
+        }
+
+        function displayResults(recipes, grid) {
+            grid.innerHTML = '';
+            if (recipes.length === 0) {
+                grid.innerHTML = '<p class="col-span-full text-center text-gray-400 py-12">No recipes found. Try a different search.</p>';
+                return;
+            }
+
+            recipes.forEach((recipe, index) => {
+                const card = document.createElement('div');
+                card.className = 'recipe-card bg-white p-6 rounded-2xl border subtle-border cursor-pointer slide-up stagger-item';
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.onclick = () => showDetail(recipe, recipes);
+                
+                card.innerHTML = `
+                    <div class="aspect-video bg-gray-100 rounded-xl mb-4 overflow-hidden">
+                        ${recipe.image ? `<img src="${recipe.image}" class="w-full h-full object-cover" alt="${recipe.title}">` : '<div class="w-full h-full flex items-center justify-center text-gray-300">No Image</div>'}
+                    </div>
+                    <h3 class="text-xl mb-2">${recipe.title}</h3>
+                    <div class="flex justify-between items-center text-xs text-gray-400 uppercase tracking-wider">
+                        <span>${recipe.host}</span>
+                        <span>${recipe.total_time ? recipe.total_time + ' min' : ''}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function showDetail(recipe, sourceList) {
+            activeRecipe = recipe;
+            
+            const yieldMatch = recipe.yields ? recipe.yields.match(/\d+/) : null;
+            originalServings = yieldMatch ? parseInt(yieldMatch[0]) : 1;
+            currentServings = originalServings;
+
+            resultsContainer.classList.add('hidden');
+            heroSection.classList.add('hidden');
+            favoritesSection.classList.add('hidden');
+            shoppingListSection.classList.add('hidden');
+            
+            recipeDetail.classList.remove('hidden');
+            recipeDetail.classList.add('slide-up');
+            window.scrollTo(0, 0);
+
+            updateFavBtn();
+            
+            setTimeout(() => {
+                const servingEl = document.getElementById('servingCount');
+                if (servingEl) servingEl.innerText = currentServings;
+            }, 0);
+
+            let nutrientsHtml = '';
+            if (recipe.nutrients && Object.keys(recipe.nutrients).length > 0) {
+                nutrientsHtml = `
+                    <div class="mt-8 p-6 bg-gray-50 rounded-2xl border subtle-border">
+                        <h4 class="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Nutrition (per serving)</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                            ${recipe.nutrients.calories ? `<div><div class="text-xl font-medium">${recipe.nutrients.calories}</div><div class="text-[10px] text-gray-400 uppercase tracking-tighter">Calories</div></div>` : ''}
+                            ${recipe.nutrients.proteinContent ? `<div><div class="text-xl font-medium">${recipe.nutrients.proteinContent}</div><div class="text-[10px] text-gray-400 uppercase tracking-tighter">Protein</div></div>` : ''}
+                            ${recipe.nutrients.fatContent ? `<div><div class="text-xl font-medium">${recipe.nutrients.fatContent}</div><div class="text-[10px] text-gray-400 uppercase tracking-tighter">Fat</div></div>` : ''}
+                            ${recipe.nutrients.carbohydrateContent ? `<div><div class="text-xl font-medium">${recipe.nutrients.carbohydrateContent}</div><div class="text-[10px] text-gray-400 uppercase tracking-tighter">Carbs</div></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            detailContent.innerHTML = `
+                <h2 class="text-4xl md:text-5xl mb-4">${recipe.title}</h2>
+                <div class="flex flex-wrap gap-4 mb-4 text-sm text-gray-500">
+                    <span class="bg-gray-100 px-3 py-1 rounded-full">${recipe.host}</span>
+                    ${recipe.total_time ? `<span class="bg-gray-100 px-3 py-1 rounded-full">Time: ${recipe.total_time} min</span>` : ''}
+                    <div class="flex items-center bg-gray-100 px-3 py-1 rounded-full gap-2">
+                        <span>Servings:</span>
+                        <button onclick="scaleServings(-1)" class="hover:text-black">-</button>
+                        <span id="servingCount" class="font-medium">${recipe.yields || '1'}</span>
+                        <button onclick="scaleServings(1)" class="hover:text-black">+</button>
+                    </div>
+                    <button onclick="toggleMetric()" id="metricBtn" class="bg-gray-100 px-3 py-1 rounded-full hover:text-black transition-colors">
+                        Metric: OFF
+                    </button>
+                </div>
+
+                ${nutrientsHtml}
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mt-12">
+                    <div class="md:col-span-1">
+                        <div class="flex justify-between items-center mb-4 border-b pb-2">
+                            <h3 class="text-xl">Ingredients</h3>
+                            <button onclick="addAllToShoppingList()" class="text-[10px] uppercase tracking-widest text-gray-400 hover:text-black">Add All to List</button>
+                        </div>
+                        <ul class="space-y-3 text-sm text-gray-600">
+                            ${recipe.ingredients.map((ing, i) => `
+                                <li class="flex items-start group cursor-pointer" onclick="toggleIngredient(${i})">
+                                    <span class="mr-3 text-gray-300 group-hover:text-black transition-colors">•</span> 
+                                    <span class="flex-grow">${ing}</span>
+                                    <button onclick="event.stopPropagation(); addToShoppingList('${ing.replace(/'/g, "\\'")}')" class="opacity-0 group-hover:opacity-100 text-[10px] text-gray-400 hover:text-black ml-2 transition-all transform hover:scale-110">Add</button>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    <div class="md:col-span-2">
+                        <h3 class="text-xl mb-4 border-b pb-2">Instructions</h3>
+                        <ol class="space-y-8 text-gray-700 leading-relaxed">
+                            ${recipe.instructions.map((step, i) => `
+                                <li class="flex">
+                                    <span class="font-bold mr-6 text-gray-400 opacity-30 text-2xl">${i + 1}</span>
+                                    <span class="pt-1">${step}</span>
+                                </li>
+                            `).join('')}
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="mt-16 pt-8 border-t subtle-border text-center no-print">
+                    <a href="${recipe.url}" target="_blank" class="text-xs text-gray-400 hover:text-black uppercase tracking-widest">View Original Source</a>
+                </div>
+            `;
+        }
+
+        function closeDetail() {
+            recipeDetail.classList.add('hidden');
+            recipeDetail.classList.remove('slide-up');
+            if (favoritesSection.classList.contains('hidden') && shoppingListSection.classList.contains('hidden')) {
+                resultsContainer.classList.remove('hidden');
+                heroSection.classList.remove('hidden');
+            } else if (!favoritesSection.classList.contains('hidden')) {
+                favoritesSection.classList.remove('hidden');
+            } else {
+                shoppingListSection.classList.remove('hidden');
+            }
+        }
+
+        // Favorites Logic
+        function toggleFavoriteCurrent() {
+            if (!activeRecipe) return;
+            const index = favorites.findIndex(f => f.url === activeRecipe.url);
+            const favBtn = document.getElementById('favBtn');
+            
+            favBtn.classList.add('heart-pop');
+            setTimeout(() => favBtn.classList.remove('heart-pop'), 400);
+
+            if (index > -1) {
+                favorites.splice(index, 1);
+            } else {
+                favorites.push(activeRecipe);
+            }
+            localStorage.setItem('flavortown_favorites', JSON.stringify(favorites));
+            updateFavBtn();
+            updateCounts();
+            if (!favoritesSection.classList.contains('hidden')) displayResults(favorites, favoritesGrid);
+        }
+
+        function updateFavBtn() {
+            const favBtn = document.getElementById('favBtn');
+            const isFav = favorites.some(f => f.url === activeRecipe.url);
+            favBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-1 ${isFav ? 'fill-black stroke-black' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                ${isFav ? 'Favorited' : 'Favorite'}
+            `;
+        }
+
+        function toggleFavorites() {
+            heroSection.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            recipeDetail.classList.add('hidden');
+            shoppingListSection.classList.add('hidden');
+            favoritesSection.classList.toggle('hidden');
+            if (!favoritesSection.classList.contains('hidden')) {
+                displayResults(favorites, favoritesGrid);
+            } else {
+                heroSection.classList.remove('hidden');
+                resultsContainer.classList.remove('hidden');
+            }
+        }
+
+        function addToShoppingList(item) {
+            if (!shoppingList.includes(item)) {
+                shoppingList.push(item);
+                localStorage.setItem('flavortown_shopping', JSON.stringify(shoppingList));
+                updateCounts();
+            }
+        }
+
+        function addAllToShoppingList() {
+            if (!activeRecipe) return;
+            activeRecipe.ingredients.forEach(ing => {
+                if (!shoppingList.includes(ing)) shoppingList.push(ing);
+            });
+            localStorage.setItem('flavortown_shopping', JSON.stringify(shoppingList));
+            updateCounts();
+            showModal('Added to List', 'All ingredients have been added to your shopping list.');
+        }
+
+        function toggleShoppingList() {
+            heroSection.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            recipeDetail.classList.add('hidden');
+            favoritesSection.classList.add('hidden');
+            shoppingListSection.classList.toggle('hidden');
+            if (!shoppingListSection.classList.contains('hidden')) {
+                renderShoppingList();
+            } else {
+                heroSection.classList.remove('hidden');
+                resultsContainer.classList.remove('hidden');
+            }
+        }
+
+        function renderShoppingList() {
+            if (shoppingList.length === 0) {
+                shoppingListContent.innerHTML = '<p class="text-center text-gray-400">Your shopping list is empty.</p>';
+                return;
+            }
+            shoppingListContent.innerHTML = `
+                <ul class="space-y-4">
+                    ${shoppingList.map((item, i) => `
+                        <li class="flex justify-between items-center border-b subtle-border pb-2 transition-all duration-300">
+                            <span class="text-gray-700">${item}</span>
+                            <button onclick="removeFromShoppingList(${i})" class="text-gray-300 hover:text-red-400 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </li>
+                    `).join('')}
+                </ul>
+                <button onclick="clearShoppingList()" class="mt-8 w-full py-3 border border-gray-200 rounded-xl text-xs uppercase tracking-widest text-gray-400 hover:text-black hover:border-black transition-all">Clear List</button>
+            `;
+        }
+
+        function removeFromShoppingList(index) {
+            const items = document.querySelectorAll('#shoppingListContent li');
+            if (items[index]) {
+                items[index].classList.add('opacity-0', 'translate-x-4');
+                setTimeout(() => {
+                    shoppingList.splice(index, 1);
+                    localStorage.setItem('flavortown_shopping', JSON.stringify(shoppingList));
+                    renderShoppingList();
+                    updateCounts();
+                }, 300);
+            }
+        }
+
+        function clearShoppingList() {
+            showConfirmModal(() => {
+                shoppingList = [];
+                localStorage.setItem('flavortown_shopping', JSON.stringify(shoppingList));
+                renderShoppingList();
+                updateCounts();
+            });
+        }
+
+        function updateCounts() {
+            document.getElementById('favCount').innerText = favorites.length;
+            document.getElementById('shopCount').innerText = shoppingList.length;
+        }
+
+        function copyRecipeLink() {
+            if (!activeRecipe) return;
+            const shareUrl = `${window.location.origin}${window.location.pathname}?url=${encodeURIComponent(activeRecipe.url)}`;
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                showModal('Link Copied', 'The Flavortown link has been copied to your clipboard.');
+            });
+        }
+
+        function toggleIngredient(index) {
+            const items = document.querySelectorAll('#detailContent li');
+            if (items[index]) {
+                items[index].classList.toggle('line-through');
+                items[index].classList.toggle('opacity-50');
+            }
+        }
+    </script>
+</body>
+</html>
